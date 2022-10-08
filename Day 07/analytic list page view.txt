@@ -1,0 +1,121 @@
+@AbapCatalog.sqlViewName: 'ZATSIBOOKANA'
+@AbapCatalog.compiler.compareFilter: true
+@AbapCatalog.preserveKey: true
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'ZATS_I_BOOKING_ANALYTICS'
+define root view ZATS_I_BOOKING_ANALYTICS as select from /dmo/booking as Booking
+  association [0..1] to ZBKL_XX_M_TRAVEL as _Travel on $projection.TravelID = _Travel.TravelId
+  association [1..1] to /DMO/I_Connection as _Connection on $projection.CarrierID = _Connection.AirlineID and $projection.ConnectionID = _Connection.ConnectionID
+  association [1..1] to /DMO/I_Carrier as _Carrier on $projection.CarrierID = _Carrier.AirlineID
+  association [0..1] to /DMO/I_Customer as _Customer on $projection.CustomerID = _Customer.CustomerID
+  association [0..1] to /DMO/I_Agency as _Agency on $projection.AgencyID = _Agency.AgencyID
+{
+  key booking_id as BookingID,
+  
+  travel_id as TravelID,
+  
+  booking_date as BookingDate,
+  
+  SUBSTRING (booking_date,1,4) as BookingDateYear,
+  
+  customer_id as CustomerID,
+  
+  _Customer.LastName as CustomerName,
+  
+  carrier_id as CarrierID,
+  
+  _Carrier.Name as CarrierName,
+  
+  connection_id as ConnectionID,
+  
+  flight_date as FlightDate,
+  
+  @Semantics.amount.currencyCode: 'CurrencyCode'
+  flight_price as FlightPrice,
+  
+  currency_code as CurrencyCode,
+  
+  _Travel.AgencyId as AgencyID,
+  
+  _Travel._Agency.Name as AgencyName,
+  
+  @Semantics.user.createdBy: true
+  _Travel.Createdby as CreatedBy,
+  
+  @Semantics.user.lastChangedBy: true
+  _Travel.Lastchangedby as LastChangedBy,
+  
+  @Semantics.systemDateTime.localInstanceLastChangedAt: true
+  _Carrier.LastChangedAt as LocalLastChangedAt,
+  
+  _Travel,
+  
+  _Carrier,
+  
+  _Customer,
+  
+  _Connection
+}
+
+
+
+@EndUserText.label: 'ZFE_C_BOOKING_ANALYTICS'
+@AccessControl.authorizationCheck: #CHECK
+@Search.searchable: true
+define root view entity ZATS_C_BOOKING_ANALYTICS 
+as projection on ZATS_I_BOOKING_ANALYTICS {
+
+    @Search.defaultSearchElement: true
+    @Search.fuzzinessThreshold: 0.9 
+    key BookingID,
+    
+    BookingDate,
+    @EndUserText.label: 'Booking Date (Year)'
+    BookingDateYear,
+    @EndUserText.label: 'Customer'
+    @ObjectModel.text.element: [ 'CustomerName' ]
+    CustomerID,
+    CustomerName,
+    @EndUserText.label: 'Airline'
+    @ObjectModel.text.element: [ 'CarrierName' ]
+    CarrierID,
+    CarrierName,
+    ConnectionID,
+    FlightDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    @Aggregation.default: #SUM
+    FlightPrice,
+    CurrencyCode,
+    @EndUserText.label: 'Agency'
+    @ObjectModel.text.element: [ 'AgencyName' ]
+    AgencyID,
+    AgencyName,
+    CreatedBy,
+  
+      LastChangedBy,
+      
+      LocalLastChangedAt,
+            
+      _Carrier,
+      
+      _Customer,
+      
+      _Connection
+
+}
+
+
+
+@EndUserText.label: 'booking ana'
+define service Zats_BOOKING_ANALYTICS {
+  expose ZATS_C_BOOKING_ANALYTICS as Booking;
+  expose ZBKL_XX_M_TRAVEL as Travel;
+  expose /DMO/I_Connection as Connection;
+  expose /DMO/I_Flight as Flight;
+  expose /DMO/I_Carrier as Airline;
+  expose I_Currency as Currency;
+  expose /DMO/I_Customer as Customer;
+  expose /DMO/I_Agency as Agency;
+}
+
+

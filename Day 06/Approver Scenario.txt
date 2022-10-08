@@ -1,0 +1,398 @@
+@EndUserText.label: 'Approver projection view'
+@AccessControl.authorizationCheck: #CHECK
+@UI.headerInfo: {
+    typeName: 'Travel',
+    typeNamePlural: 'Travels',
+    title: {label: 'TravelID', value: 'TravelId'},
+    description: { label: 'Description', value: 'Description'}
+}
+@Search.searchable: true
+@Metadata.allowExtensions: true
+define root view entity ZC_BKL_XX_TRAVEL_APPROVER as projection on ZBKL_XX_M_TRAVEL {
+    @Search.defaultSearchElement: true
+    key TravelId,
+    @Search.defaultSearchElement: true
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Agency', element: 'AgencyID'} }]
+    @ObjectModel.text.element: ['AgencyName']
+    AgencyId,
+    _Agency.Name as AgencyName,
+    @Search.defaultSearchElement: true
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID'} }]
+    @ObjectModel.text.element: ['CustomerName']
+    CustomerId,
+    _Customer.FirstName as CustomerName,
+    BeginDate,
+    EndDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    BookingFee,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    TotalPrice,
+    CurrencyCode,
+    Description,
+    Status,
+    Createdby,
+    Createdat,
+    Lastchangedby,
+    Lastchangedat,
+    /* Associations */
+    _Agency,
+    _Booking : redirected to composition child ZC_BKL_XX_BOOKING_APPROVER,
+    _Currency,
+    _Customer
+}
+
+
+@EndUserText.label: 'Approver projection for Booking'
+@AccessControl.authorizationCheck: #CHECK
+@UI.headerInfo: {
+    typeName: 'Booking',
+    typeNamePlural: 'Bookings',
+    title: { value: 'BookingId' },
+    description: { value : 'ConnectionId' }
+}
+@Metadata.allowExtensions: true
+define view entity ZC_BKL_XX_BOOKING_APPROVER as projection on ZBKL_XX_M_BOOKING {
+    key TravelId,
+    key BookingId,
+    BookingDate,
+    CustomerId,
+    CarrierId,
+    ConnectionId,
+    FlightDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    FlightPrice,
+    CurrencyCode,
+    Lastchangedat,
+    /* Associations */
+    _Carrier,
+    _Connection,
+    _Customer,
+    _Travel: redirected to parent ZC_BKL_XX_TRAVEL_APPROVER
+}
+
+
+
+@Metadata.layer: #CUSTOMER
+annotate entity ZC_BKL_XX_TRAVEL_APPROVER
+    with 
+{
+    @UI.facet: [{ 
+        id: 'Travel',
+        purpose: #STANDARD,
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'Travel',
+        position: 10
+    },{ 
+        id: 'Booking',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Bookings',
+        position: 20,
+        targetElement: '_Booking'
+    }]
+    @UI: { selectionField: [{position: 10 }],
+           lineItem: [{position: 10 }],
+           identification: [{position: 10 }]
+     }
+    TravelId;
+    @UI: { selectionField: [{position: 20 }],
+           lineItem: [{position: 20 }],
+           identification: [{position: 20 }]
+     }
+    AgencyId;
+    @UI: { selectionField: [{position: 30 }],
+           lineItem: [{position: 30 }],
+           identification: [{position: 30 }]
+     }
+    CustomerId;
+    @UI: { lineItem: [{position: 40 }],
+           identification: [{position: 40 }]
+     }
+    BeginDate;
+    @UI: { lineItem: [{position: 50 }],
+           identification: [{position: 50 }]
+     }
+    EndDate;
+    @UI: { lineItem: [{position: 60 }],
+           identification: [{position: 60 }]
+     }
+    BookingFee;
+    @UI: { lineItem: [{position: 70 }],
+           identification: [{position: 70 }]
+     }
+    TotalPrice;
+    @UI: { lineItem: [{position: 80 }],
+           identification: [{position: 80 }]
+     }
+    Description;
+    @UI: { lineItem: [{position: 90, importance: #HIGH },
+                      {type: #FOR_ACTION, dataAction: 'acceptTravel', label: 'Accept Travel' },
+                      {type: #FOR_ACTION, dataAction: 'rejectTravel', label: 'Reject Travel' }],
+           identification: [{position: 90 },
+                      {type: #FOR_ACTION, dataAction: 'acceptTravel', label: 'Accept Travel' },
+                      {type: #FOR_ACTION, dataAction: 'rejectTravel', label: 'Reject Travel' }]
+     }
+    @EndUserText.label: 'Overall Status'
+    Status;
+    
+}
+
+
+
+
+@Metadata.layer: #CUSTOMER
+annotate entity ZC_BKL_XX_BOOKING_APPROVER
+    with 
+{
+    @UI.facet: [{ 
+        id: 'BookingData',
+        purpose: #STANDARD,
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'Booking Data',
+        position: 10
+    }]
+    TravelId;
+    @UI: { lineItem: [{position: 10 }], 
+           identification: [{position: 10 }]
+    }
+    BookingId;
+    @UI: { lineItem: [{position: 20 }], 
+           identification: [{position: 20 }]
+    }
+    BookingDate;
+    @UI: { lineItem: [{position: 30 }], 
+           identification: [{position: 30 }]
+    }
+    CustomerId;
+    @UI: { lineItem: [{position: 40 }], 
+           identification: [{position: 40 }]
+    }
+    CarrierId;
+    @UI: { lineItem: [{position: 50 }], 
+           identification: [{position: 50 }]
+    }
+    ConnectionId;
+    @UI: { lineItem: [{position: 60 }], 
+           identification: [{position: 60 }]
+    }
+    FlightDate;
+    @UI: { lineItem: [{position: 70 }], 
+           identification: [{position: 70 }]
+    }
+    FlightPrice;
+    
+}
+
+
+projection;
+//strict; //Comment this line in to enable strict mode. The strict mode is prerequisite to be future proof regarding syntax and to be able to release your BO.
+//use draft;
+
+define behavior for ZC_BKL_XX_TRAVEL_APPROVER //alias <alias_name>
+{
+  use update;
+
+  field (readonly) TravelId, BeginDate, EndDate, AgencyId, CustomerId, TotalPrice, CurrencyCode;
+
+  use action acceptTravel;
+  use action rejectTravel;
+
+  //use association _Booking { create; with draft; }
+}
+
+//define behavior for ZC_BKL_XX_BOOKING_APPROVER //alias <alias_name>
+//{
+//  use update;
+//  use delete;
+//
+//  use association _Travel { with draft; }
+//}
+
+
+@EndUserText.label: 'Approver service definition'
+define service ZBKL_XX_SD_APPROVER {
+  expose ZC_BKL_XX_TRAVEL_APPROVER as Travel;
+  expose ZC_BKL_XX_BOOKING_APPROVER as Booking;
+  expose /DMO/I_Agency as Agency;
+  expose /DMO/I_Customer as Customer;
+  expose I_Currency as Currency;
+}
+
+
+------------------------------------------------------------------------------------
+
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Booking Entity, Child of Travel 1..n'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType:{
+    serviceQuality: #X,
+    sizeCategory: #S,
+    dataClass: #MIXED
+}
+define view entity ZBKL_XX_M_BOOKING as select from /dmo/booking as Booking
+composition[0..*] of ZBKL_XX_M_BOOK_SPPL as _BookingSuppl
+
+association to parent ZBKL_XX_M_TRAVEL as _Travel on
+$projection.TravelId = _Travel.TravelId
+association[1..1] to /DMO/I_Customer as _Customer on 
+$projection.CustomerId = _Customer.CustomerID
+association[1..1] to /dmo/carrier as _Carrier on
+$projection.CarrierId = _Carrier.carrier_id
+association[1..1] to /DMO/I_Connection as _Connection on 
+$projection.CarrierId = _Connection.AirlineID
+and $projection.ConnectionId = _Connection.ConnectionID
+{
+    key Booking.travel_id as TravelId,
+    key Booking.booking_id as BookingId,
+    Booking.booking_date as BookingDate,
+    Booking.customer_id as CustomerId,
+    Booking.carrier_id as CarrierId,
+    Booking.connection_id as ConnectionId,
+    Booking.flight_date as FlightDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    Booking.flight_price as FlightPrice,
+    Booking.currency_code as CurrencyCode,
+    @UI.hidden: true
+    _Travel.Lastchangedat,  --take care of the ETag from parent
+    /*Having a feeling of best friend*/
+    _Travel,
+    _Customer,
+    _Carrier,
+    _Connection,
+    _BookingSuppl
+}
+
+
+
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Booking Supplement View'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType:{
+    serviceQuality: #X,
+    sizeCategory: #S,
+    dataClass: #MIXED
+}
+define view entity ZBKL_XX_M_BOOK_SPPL as select from /dmo/book_suppl as BookingSuppl
+association to parent ZBKL_XX_M_BOOKING as _Bookings
+on $projection.TravelId = _Bookings.TravelId and
+$projection.BookingId = _Bookings.BookingId
+association[1] to ZBKL_XX_M_TRAVEL as _Travel
+on $projection.TravelId = _Travel.TravelId
+{
+    key travel_id as TravelId,
+    key booking_id as BookingId,
+    key booking_supplement_id as BookingSupplementId,
+    supplement_id as SupplementId,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    price as Price,
+    currency_code as CurrencyCode,
+    _Bookings._Travel.Lastchangedat,
+    _Bookings,
+    _Travel
+}
+
+
+
+@EndUserText.label: 'Approver booking supplement project'
+@AccessControl.authorizationCheck: #CHECK
+@Metadata.allowExtensions: true
+@Search.searchable: true
+define view entity ZC_BKL_XX_BOOK_SUPPL_APPROVER as 
+    projection on ZBKL_XX_M_BOOK_SPPL {
+    @Search.defaultSearchElement: true
+    key TravelId,
+    @Search.defaultSearchElement: true
+    key BookingId,
+    @Search.defaultSearchElement: true
+    key BookingSupplementId,
+    SupplementId,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    Price,
+    CurrencyCode,
+    Lastchangedat,
+    /* Associations */
+    _Bookings : redirected to parent ZC_BKL_XX_BOOKING_APPROVER
+    
+}
+
+
+add below line to booking approver projection
+
+_BookingSuppl: redirected to composition child ZC_BKL_XX_BOOK_SUPPL_APPROVER
+    
+
+
+
+@Metadata.layer: #CUSTOMER
+annotate entity ZC_BKL_XX_BOOK_SUPPL_APPROVER
+    with 
+{
+    @UI.facet: [{
+        label: 'General Info',
+        id: 'GeneralInfo',
+        purpose: #STANDARD,
+        type: #COLLECTION,
+        position: 10,
+        qualifier: 'GeneralInfo'
+     },{
+        label: 'Booking Supplement',
+        id: 'BasicData',
+        parentId: 'GeneralInfo',
+        type: #FIELDGROUP_REFERENCE,
+        position: 10,
+        targetQualifier: 'basicData'
+      }]
+    
+    @UI: { 
+        lineItem: [{position: 10 }],
+        fieldGroup: [{position: 10, qualifier: 'basicData', label: 'Travel ID' }]
+    }
+    TravelId;
+    @UI: { 
+        lineItem: [{position: 20 }],
+        fieldGroup: [{position: 20, qualifier: 'basicData', label: 'Booking ID' }]
+    }
+    BookingId;
+    @UI: { 
+        lineItem: [{position: 30 }],
+        fieldGroup: [{position: 30, qualifier: 'basicData', label: 'Supplement ID' }]
+    }
+    BookingSupplementId;
+    @UI: { 
+        lineItem: [{position: 40 }],
+        fieldGroup: [{position: 40, qualifier: 'basicData', label: 'Supplement Name' }]
+    }
+    SupplementId;
+    @UI: { 
+        lineItem: [{position: 50 }],
+        fieldGroup: [{position: 50, qualifier: 'basicData', label: 'Price' }]
+    }
+    Price;
+    @UI: { 
+        lineItem: [{position: 60 }],
+        fieldGroup: [{position: 60, qualifier: 'basicData', label: 'Currency' }]
+    }
+    CurrencyCode;
+    
+}
+
+
+Add the booking projection mde annotation for line item table of supplement
+
+,{ 
+        id: 'BookingSupplement',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Booking Supplements',
+        position: 20,
+        targetElement: '_BookingSuppl'    
+    }
+
+
+
+expose ZC_BKL_XX_BOOK_SUPPL_APPROVER as BookingSuppl;
+
+
+

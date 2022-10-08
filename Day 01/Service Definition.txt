@@ -1,0 +1,6 @@
+=====================Service Definition====================
+
+@EndUserText.label: 'Service Definition for Test'
+define service ZATS_00_SD_TEST {
+  expose zats_00_c_softsales;
+}

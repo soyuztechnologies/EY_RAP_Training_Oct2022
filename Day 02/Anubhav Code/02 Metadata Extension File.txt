@@ -1,0 +1,34 @@
+@Metadata.layer: #CORE
+@UI.headerInfo: { 
+    typeName: 'Travel',
+    typeNamePlural: 'Travels'
+}
+@UI.presentationVariant: [{ 
+    sortOrder: [{by: 'Lastchangedat', direction: #DESC }],
+    visualizations: [{type: #AS_LINEITEM }]
+}]
+annotate view ZI_BKL_XX_U_TRAVEL
+    with 
+{
+    @UI.selectionField: [{position: 10 }]
+    @UI.lineItem: [{position: 10 }]
+    TravelId;
+    @UI.selectionField: [{position: 20 }]
+    @UI.lineItem: [{position: 20 }]
+    AgencyId;
+    @UI.selectionField: [{position: 30 }]
+    @UI.lineItem: [{position: 30 }]
+    CustomerId;
+    @UI.lineItem: [{position: 40 }]
+    BeginDate;
+    @UI.lineItem: [{position: 50 }]
+    TotalPrice;
+    @UI.lineItem: [{position: 60, importance: #HIGH, criticality: 'Criticality', criticalityRepresentation: #WITH_ICON }]
+    @UI.textArrangement: #TEXT_ONLY
+    @UI.selectionField: [{position: 40 }]
+    Status;
+    @UI.lineItem: [{position: 70 }]
+    Lastchangedat;
+    
+    
+}
