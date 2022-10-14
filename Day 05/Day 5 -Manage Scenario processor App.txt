@@ -1,0 +1,336 @@
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Root Entity for RAP Business Object for Compostion tree'
+define root view entity ZEY_AO_I_M_TRAVEL as select from /dmo/travel  
+composition[1..*] of ZEY_AO_I_M_BOOKING as _Bookings 
+association[0..1] to ZEY_AO_U_AGENCY as _Agency on
+$projection.AgencyId = _Agency.AgencyId
+association[0..1] to ZEY_AO_U_CUSTOMER as _Customer on
+$projection.CustomerId = _Customer.CustomerId
+association[0..1] to I_Currency as _Currency on
+$projection.CurrencyCode = _Currency.Currency
+
+{
+    key /dmo/travel.travel_id as TravelId,
+    /dmo/travel.agency_id as AgencyId,
+    /dmo/travel.customer_id as CustomerId,
+    /dmo/travel.begin_date as BeginDate,
+    /dmo/travel.end_date as EndDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    /dmo/travel.booking_fee as BookingFee,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    /dmo/travel.total_price as TotalPrice,
+    /dmo/travel.currency_code as CurrencyCode,
+    /dmo/travel.description as Description,
+    /dmo/travel.status as Status,
+    @Semantics.user.createdBy: true
+    /dmo/travel.createdby as Createdby,
+    @Semantics.systemDateTime.createdAt: true
+    /dmo/travel.createdat as Createdat,
+    @Semantics.user.lastChangedBy: true
+    /dmo/travel.lastchangedby as Lastchangedby,
+    @Semantics.systemDateTime.lastChangedAt: true
+    /dmo/travel.lastchangedat as Lastchangedat,
+    _Bookings, // Make association public
+    _Agency,
+    _Customer,
+    _Currency
+}
+
+
+
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Entity for composition with Travel'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType:{
+    serviceQuality: #X,
+    sizeCategory: #S,
+    dataClass: #MIXED
+}
+define view entity ZEY_AO_I_M_BOOKING as select from /dmo/booking as Booking 
+association to parent ZEY_AO_I_M_TRAVEL as _Travel on
+$projection.TravelId = _Travel.TravelId
+association[1..1] to ZEY_AO_U_CUSTOMER as _Customer on 
+$projection.CustomerId = _Customer.CustomerId
+association[1..1] to /DMO/I_Carrier as _Carrier on
+$projection.CarrierId = _Carrier.AirlineID
+association[1..1] to /DMO/I_Connection as _Connection on
+$projection.CarrierId = _Connection.AirlineID and
+$projection.ConnectionId = _Connection.ConnectionID
+{
+    key Booking.travel_id as TravelId,
+    key Booking.booking_id as BookingId,
+    Booking.booking_date as BookingDate,
+    Booking.customer_id as CustomerId,
+    Booking.carrier_id as CarrierId,
+    Booking.connection_id as ConnectionId,
+    Booking.flight_date as FlightDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    Booking.flight_price as FlightPrice,
+    Booking.currency_code as CurrencyCode,
+    @UI.hidden: true
+    _Travel.Lastchangedat,
+    _Travel,
+    _Customer,
+    _Carrier,
+    _Connection
+    
+    
+}
+
+
+
+managed implementation in class zbp_ey_ao_i_m_travel unique;
+strict ( 2 );
+
+define behavior for ZEY_AO_I_M_TRAVEL alias Travel
+persistent table /DMO/TRAVEL
+lock master
+authorization master ( global )
+etag master Lastchangedat
+{
+  create;
+  update;
+  delete;
+  association _Bookings { create; }
+
+  mapping for /dmo/travel{
+    AgencyId = agency_id;
+    BeginDate = begin_date;
+    BookingFee = booking_fee;
+    CurrencyCode = currency_code;
+    CustomerId = customer_id;
+    EndDate = end_date;
+    Lastchangedat = lastchangedat;
+    Description = description;
+    Status = status;
+    TotalPrice = total_price;
+    TravelId = travel_id;
+    CreatedBy = createdby;
+    Lastchangedby = lastchangedby;
+    Createdat = createdat;
+  }
+}
+
+define behavior for ZEY_AO_I_M_BOOKING //alias <alias_name>
+persistent table /dmo/booking
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master Lastchangedat
+{
+  update;
+  delete;
+  field ( readonly ) TravelId;
+  association _Travel;
+
+  mapping for /dmo/booking{
+    BookingId = booking_id;
+    TravelId = travel_id;
+    BookingDate = booking_date;
+    CustomerId = customer_id;
+    CarrierId = carrier_id;
+    ConnectionId = connection_id;
+    FlightDate = flight_date;
+    FlightPrice = flight_price;
+    CurrencyCode = currency_code;
+  }
+}
+
+
+@EndUserText.label: 'Process Scenario CDS projection'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+@UI.headerInfo:{
+    typeName: 'Travel',
+    typeNamePlural: 'Travel',
+    title: {value: 'TravelId'},
+    description: {value: 'Description'}
+}
+@Search.searchable: true
+
+define root view entity ZEY_AO_I_M_TRAVEL_PROCESSOR as projection on ZEY_AO_I_M_TRAVEL {
+    @Search.defaultSearchElement: true
+    @UI.facet: [{
+        id : 'Details',
+        purpose: #STANDARD,
+        type: #IDENTIFICATION_REFERENCE,
+        label: 'Travel Details',
+        position: 10
+     },{
+        id : 'Booking',
+        purpose: #STANDARD,
+        type: #LINEITEM_REFERENCE,
+        label: 'Booking Details',
+        position: 20,
+        targetElement: '_Bookings'
+     }]
+    @UI: {
+        selectionField: [{position: 10 }],
+        lineItem: [{position: 10 }],
+        identification: [{position: 10 }]
+    }
+    @ObjectModel.text.element: ['Description']
+    key TravelId,
+    @Search.defaultSearchElement: true
+    @UI: {
+        selectionField: [{position: 20 }],
+        lineItem: [{position: 20 }],
+        identification: [{position: 20 }]
+    }
+    @ObjectModel.text.element: ['AgencyName']
+    AgencyId,
+    _Agency.Name as AgencyName,
+    _Customer.LastName as CustomerName,
+    @Search.defaultSearchElement: true
+    @UI: {
+        selectionField: [{position: 30 }],
+        lineItem: [{position: 30 }],
+        identification: [{position: 30 }]
+    }
+    @ObjectModel.text.element: ['CustomerName']
+    CustomerId,
+    @UI: {
+        selectionField: [{position: 40 }],
+        lineItem: [{position: 40 }],
+        identification: [{position: 40 }]
+    }
+    BeginDate,
+    @UI: {
+        identification: [{position: 50 }]
+    }
+    EndDate,
+    @UI: {
+        identification: [{position: 60 }]
+    }
+    BookingFee,
+    @UI: {
+        identification: [{position: 70 }]
+    }
+    TotalPrice,
+    @UI: {
+        identification: [{position: 80 }]
+    }
+    CurrencyCode,
+    @UI: {
+        identification: [{position: 90 }]
+    }
+    Description,
+    @UI: {
+        identification: [{position: 100 }]
+    }
+    Status,
+    @UI: {
+        identification: [{position: 110 }]
+    }
+    Createdby,
+    @UI: {
+        identification: [{position: 120 }]
+    }
+    Createdat,
+    Lastchangedby,
+    Lastchangedat,
+    /* Associations */
+    _Agency,
+    _Bookings : redirected to composition child ZEY_AO_I_M_BOOKING_PROCESSOR,
+    _Currency,
+    _Customer
+}
+
+
+
+@EndUserText.label: 'Booking processor projection'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+@UI.headerInfo:{
+    typeName: 'Booking',
+    typeNamePlural: 'Bookings',
+    title: { type: #STANDARD, value: 'BookingID' }
+    
+}
+
+
+define view entity ZEY_AO_I_M_BOOKING_PROCESSOR as projection on ZEY_AO_I_M_BOOKING {
+    @UI.facet: [{
+        id: 'BookingDetails',
+        label: 'Booking Details',
+        purpose: #STANDARD,
+        type: #IDENTIFICATION_REFERENCE
+     }]
+     @UI.identification: [{position: 10 }]
+    key TravelId,
+    @UI.lineItem: [{position: 10 }]
+    @UI.identification: [{position: 20 }]
+    key BookingId,
+    @UI.lineItem: [{position: 20 }]
+    @UI.identification: [{position: 30 }]
+    BookingDate,
+    @UI.lineItem: [{position: 30 }]
+    @UI.identification: [{position: 40 }]
+    @Consumption.valueHelpDefinition: [{entity: {name: '/DMO/I_Customer', element: 'CustomerID'} }]
+    CustomerId,
+    @UI.lineItem: [{position: 40 }]
+    @UI.identification: [{position: 50 }]
+    @Consumption.valueHelpDefinition: [{entity: {name: '/DMO/I_Carrier', element: 'AirlineID'} }]
+    CarrierId,
+    @UI.lineItem: [{position: 50 }]
+    @UI.identification: [{position: 60 }]
+    @Consumption.valueHelpDefinition: [{entity: {name: '/DMO/I_Flight', element: 'ConnectionID'},
+                                          additionalBinding: [{ localElement: 'FlightDate', element: 'FlightDate' },
+                                          { localElement: 'CarrierID', element: 'AirlineID' },
+                                          { localElement: 'FlightPrice', element: 'Price' },
+                                          { localElement: 'CurrencyCode', element: 'CurrencyCode' }] }]
+    ConnectionId,
+    @UI.lineItem: [{position: 60 }]
+    @Consumption.valueHelpDefinition: [{entity: {name: '/DMO/I_Flight', element: 'ConnectionID'},
+                                          additionalBinding: [{ localElement: 'FlightDate', element: 'FlightDate' },
+                                          { localElement: 'CarrierID', element: 'AirlineID' },
+                                          { localElement: 'FlightPrice', element: 'Price' },
+                                          { localElement: 'CurrencyCode', element: 'CurrencyCode' }] }]
+    @UI.identification: [{position: 70 }]
+    FlightDate,
+    @UI.lineItem: [{position: 70 }]
+    @UI.identification: [{position: 80 }]
+    FlightPrice,
+    CurrencyCode,
+    Lastchangedat,
+    /* Associations */
+    _Carrier,
+    _Connection,
+    _Customer,
+    _Travel: redirected to parent ZEY_AO_I_M_TRAVEL_PROCESSOR
+}
+
+
+
+@EndUserText.label: 'ZEY_AO_I_M_TRAVEL_PROCESSOR'
+define service ZEY_AO_SD_TRAVEL_PROCESSOR {
+  expose ZEY_AO_I_M_TRAVEL_PROCESSOR as Travel;
+  expose ZEY_AO_I_M_BOOKING_PROCESSOR as Booking;
+  expose /DMO/I_Flight as Flight;
+  expose /DMO/I_Carrier as Carrier;
+  expose ZEY_AO_U_CUSTOMER as Customer;
+  expose ZEY_AO_U_AGENCY as Agency;
+  expose /DMO/I_Connection as Connection;
+}
+
+
+projection;
+strict ( 2 );
+
+define behavior for ZEY_AO_I_M_TRAVEL_PROCESSOR //alias <alias_name>
+{
+  use create;
+  use update;
+  use delete;
+
+  use association _Bookings { create; }
+}
+
+define behavior for ZEY_AO_I_M_BOOKING_PROCESSOR //alias <alias_name>
+{
+  use update;
+  use delete;
+
+  use association _Travel;
+}
+
