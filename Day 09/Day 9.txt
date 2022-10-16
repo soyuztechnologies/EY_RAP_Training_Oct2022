@@ -1,0 +1,279 @@
+@EndUserText.label : 'Invoice Header'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zinvoicehdr {
+  key client            : abap.clnt not null;
+  key invoice           : ebeln not null;
+  comments              : char30;
+  vendor_id             : /dmo/customer_id;
+  local_created_by      : abp_creation_user;
+  local_created_at      : abp_creation_tstmpl;
+  local_last_changed_by : abp_locinst_lastchange_user;
+  local_last_changed_at : abp_locinst_lastchange_tstmpl;
+  last_changed_at       : abp_lastchange_tstmpl;
+
+}
+
+@EndUserText.label : 'Invoice attachments'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table zinvoice_attach {
+  key client    : abap.clnt not null;
+  key attach_id : char32 not null;
+  invoice       : ebeln not null;
+  comments      : char30;
+  attachment    : zattachment;
+  mimetype      : char128;
+  filename      : char128;
+
+}
+
+
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Invoice header'
+define root view entity ZATS_I_INVOICE
+  as select from zinvoicehdr
+  composition [1..*] of ZATS_I_INV_ATTACH as _Attachments
+  association [0..1] to /DMO/I_Customer   as _Customer on $projection.VendorId = _Customer.CustomerID
+{
+  key invoice               as Invoice,
+      comments              as Comments,
+      vendor_id             as VendorId,
+      @Semantics.user.createdBy: true
+      local_created_by      as LocalCreatedBy,
+      @Semantics.systemDateTime.createdAt: true
+      local_created_at      as LocalCreatedAt,
+      @Semantics.user.lastChangedBy: true
+      local_last_changed_by as LocalLastChangedBy,
+      //local ETag field --> OData ETag
+      @Semantics.systemDateTime.localInstanceLastChangedAt: true
+      local_last_changed_at as LocalLastChangedAt,
+      //total ETag field
+      @Semantics.systemDateTime.lastChangedAt: true
+      last_changed_at       as LastChangedAt,
+      _Customer,
+      _Attachments // Make association public
+}
+
+
+
+
+@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AccessControl.authorizationCheck: #CHECK
+@EndUserText.label: 'Invoice attachments'
+@Metadata.ignorePropagatedAnnotations: true
+@ObjectModel.usageType:{
+    serviceQuality: #X,
+    sizeCategory: #S,
+    dataClass: #MIXED
+}
+define view entity ZATS_I_INV_ATTACH as select from zinvoice_attach 
+association to parent ZATS_I_INVOICE as _Invoice
+on $projection.Invoice = _Invoice.Invoice
+{
+    key attach_id as AttachId,
+    invoice as Invoice,
+    comments as Comments,
+    @Semantics.largeObject:
+      { mimeType: 'Mimetype',
+      fileName: 'Filename',
+      contentDispositionPreference: #INLINE }
+    
+    attachment as Attachment,
+    @Semantics.mimeType: true
+    mimetype as Mimetype,
+    filename as Filename,
+    _Invoice.LastChangedAt,
+    _Invoice
+}
+
+
+
+@EndUserText.label: 'ZATS_I_INVOICE'
+@AccessControl.authorizationCheck: #CHECK
+@UI: { headerInfo: {
+typeName: 'Invoice',
+typeNamePlural: 'Invoices',
+title: { type: #STANDARD, value: 'Invoice' },
+         description: { type: #STANDARD, value: 'Invoice' } },
+         presentationVariant: [{
+         sortOrder: [{ by: 'Invoice', direction: #ASC }],
+         visualizations: [{type: #AS_LINEITEM}] }] }
+define root view entity ZATS_P_INVOICE 
+provider contract transactional_query
+as projection on ZATS_I_INVOICE {
+@UI.facet: [    {
+                label: 'General Information',
+                id: 'GeneralInfo',
+                type: #COLLECTION,
+                position: 10
+                },
+                     { id:            'Invoicedet',
+                    purpose:       #STANDARD,
+                    type:          #IDENTIFICATION_REFERENCE,
+                    label:         'Invoice Details',
+                    parentId: 'GeneralInfo',
+                    position:      10 },
+                  {
+                      id: 'Upload',
+                      purpose: #STANDARD,
+                      type: #LINEITEM_REFERENCE,
+                      parentId: 'GeneralInfo',
+                      label: 'Upload Invoice',
+                      position: 20,
+                      targetElement: '_Attachments'
+                  } ]
+    @UI: { lineItem:       [ { position: 10, importance: #HIGH , label: 'Invoice Number'} ] ,
+          selectionField: [{position: 10 }],
+          identification: [ { position: 10 , label: 'Invoice Number' } ] }
+    key Invoice,
+    @UI: { lineItem:       [ { position: 20, importance: #HIGH , label: 'Invoice Number'} ] ,
+          identification: [ { position: 20 , label: 'Invoice Number' } ] }
+    Comments,
+    @UI: { lineItem:       [ { position: 30, importance: #HIGH , label: 'Invoice Number'} ] ,
+          selectionField: [{position: 30 }],
+          identification: [ { position: 30 , label: 'Customer Id' } ] }
+    @Consumption.valueHelpDefinition: [{entity: { name: '/DMO/I_Customer', element: 'CustomerID' } }]
+    VendorId,
+    LocalCreatedBy,
+    LocalCreatedAt,
+    LocalLastChangedBy,
+    LocalLastChangedAt,
+    LastChangedAt,
+    /* Associations */
+    _Attachments : redirected to composition child ZATS_P_ATTACH,
+    _Customer
+}
+
+
+
+@EndUserText.label: 'attachment projection'
+@AccessControl.authorizationCheck: #CHECK
+define view entity ZATS_P_ATTACH 
+as projection on ZATS_I_INV_ATTACH {
+    @UI.facet: [{ id:            'Invoicedetat',
+                    purpose:       #STANDARD,
+                    type:          #IDENTIFICATION_REFERENCE,
+                    label:         'Attachments',
+                    position:      10 }]
+    @UI: { lineItem:       [ { position: 10, importance: #HIGH , label: 'Invoice Number'} ] ,
+          identification: [{position: 10 }]}
+    key AttachId,
+    Invoice,
+    Comments,
+    @UI: { lineItem:       [ { position: 20, importance: #HIGH , label: 'Invoice Number'} ] ,
+          identification: [{position: 20 }]}
+    Attachment,
+    @UI: { lineItem:       [ { position: 30, importance: #HIGH , label: 'Invoice Number'} ] ,
+          identification: [{position: 30 }]}
+    Mimetype,
+    @UI: { lineItem:       [ { position: 40, importance: #HIGH , label: 'Invoice Number'} ] ,
+          identification: [{position: 40 }]}
+    Filename,
+    /* Associations */
+    _Invoice: redirected to parent ZATS_P_INVOICE
+}
+
+
+managed implementation in class zbp_ats_i_invoice unique;
+strict;
+with draft;
+
+define behavior for ZATS_I_INVOICE alias Invoice
+persistent table ZINVOICEHDR
+draft table zinvoicehddraft
+lock master
+total etag LocalLastChangedAt
+authorization master ( global )
+etag master LastChangedAt
+{
+  field ( readonly ) LastChangedAt, LocalLastChangedBy, LocalLastChangedAt , LocalCreatedBy ,
+                      LocalCreatedAt;
+  create;
+  update;
+  delete;
+  association _Attachments { create; with draft; }
+
+  draft action Edit ;
+  draft action Activate;
+  draft action Discard;
+  draft action Resume;
+  draft determine action Prepare ;
+
+  mapping for ZINVOICEHDR{
+    Invoice = invoice;
+    Comments = comments;
+    VendorId = vendor_id;
+    LocalCreatedAt = local_created_at;
+    LocalCreatedBy = local_created_by;
+    LocalLastChangedAt = local_last_changed_at;
+    LocalLastChangedBy = local_last_changed_by;
+    LastChangedAt = last_changed_at;
+  }
+}
+
+define behavior for ZATS_I_INV_ATTACH alias InvoiceAttachments
+persistent table zinvoice_attach
+draft table zinvoicehddatt
+lock dependent by _Invoice
+authorization dependent by _Invoice
+etag master LastChangedAt
+{
+  update;
+  delete;
+  field ( readonly ) Invoice;
+  association _Invoice { with draft; }
+
+
+  mapping for zinvoice_attach{
+    Invoice = invoice;
+    Comments = comments;
+    Attachment = attachment;
+    AttachId = attach_id;
+    Filename = filename;
+    mimetype = mimetype;
+  }
+}
+
+
+projection;
+strict ( 1 );
+use draft;
+
+define behavior for ZATS_P_INVOICE //alias <alias_name>
+{
+  use create;
+  use update;
+  use delete;
+
+  use action Edit;
+  use action Activate;
+  use action Discard;
+  use action Resume;
+  use action Prepare;
+
+  use association _Attachments { create; with draft; }
+}
+
+define behavior for ZATS_P_ATTACH //alias <alias_name>
+{
+  use update;
+  use delete;
+
+  use association _Invoice { with draft; }
+}
+
+
+
+@EndUserText.label: 'Service definition'
+define service ZATS_SD_INVOICE {
+  expose ZATS_P_INVOICE as Invoices;
+  expose ZATS_P_ATTACH as Attachment;
+  expose /DMO/I_Customer as Customer;
+}
+
+
