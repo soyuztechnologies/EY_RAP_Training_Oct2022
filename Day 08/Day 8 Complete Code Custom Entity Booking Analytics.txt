@@ -1,0 +1,239 @@
+@EndUserText.label: 'RAP Custom Entity'
+@ObjectModel.query.implementedBy: 'ABAP:ZCL_CE_RAP_AGENCY_AO' 
+define custom entity ZCE_RAP_AGENCY_AO 
+ {
+     key AgencyId : abap.numc( 6 ) ; 
+     @OData.property.valueControl: 'Name_vc' 
+     Name : abap.char( 31 ) ; 
+     Name_vc : rap_cp_odata_value_control ; 
+     @OData.property.valueControl: 'Street_vc' 
+     Street : abap.char( 30 ) ; 
+     Street_vc : rap_cp_odata_value_control ; 
+     @OData.property.valueControl: 'PostalCode_vc' 
+     PostalCode : abap.char( 10 ) ; 
+     PostalCode_vc : rap_cp_odata_value_control ; 
+     @OData.property.valueControl: 'City_vc' 
+     City : abap.char( 25 ) ; 
+     City_vc : rap_cp_odata_value_control ; 
+     @OData.property.valueControl: 'Country_vc' 
+     Country : abap.char( 3 ) ; 
+     Country_vc : rap_cp_odata_value_control ; 
+     @OData.property.valueControl: 'PhoneNumber_vc' 
+     PhoneNumber : abap.char( 30 ) ; 
+     PhoneNumber_vc : rap_cp_odata_value_control ; 
+     @OData.property.valueControl: 'WebAddress_vc' 
+     WebAddress : abap.char( 255 ) ; 
+     WebAddress_vc : rap_cp_odata_value_control ; 
+  
+}
+
+
+
+CLASS zcl_ce_rap_agency_ao DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    INTERFACES if_rap_query_provider .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zcl_ce_rap_agency_ao IMPLEMENTATION.
+
+
+  METHOD if_rap_query_provider~select.
+
+
+   DATA: filter_factory   TYPE REF TO /iwbep/if_cp_filter_factory,
+          filter_node      TYPE REF TO /iwbep/if_cp_filter_node,
+          root_filter_node TYPE REF TO /iwbep/if_cp_filter_node.
+
+    DATA: lt_business_data TYPE TABLE OF ZCE_RAP_AGENCY_AO.
+
+    DATA(top)     = io_request->get_paging( )->get_page_size( ).
+    DATA(skip)    = io_request->get_paging( )->get_offset( ).
+    DATA(requested_fields)  = io_request->get_requested_elements( ).
+    DATA(sort_order)    = io_request->get_sort_elements( ).
+
+    TRY.
+        DATA(lt_filter_condition) = io_request->get_filter( )->get_as_ranges( ).
+      CATCH cx_rap_query_filter_no_range.
+    ENDTRY.
+
+    TRY.
+        DATA(lv_http_destination) = cl_http_destination_provider=>create_by_url( i_url = 'https://sapes5.sapdevcenter.com/' ).
+        DATA(lo_http_client) = cl_web_http_client_manager=>create_by_http_destination( i_destination = lv_http_destination ).
+
+        TRY.
+         DATA(lo_client_proxy) = cl_web_odata_client_factory=>create_v2_remote_proxy(
+              EXPORTING
+                iv_service_definition_name = 'ZEY_SO_AGENCY_ES5'
+                io_http_client             = lo_http_client
+                iv_relative_service_root   = '/sap/opu/odata/sap/ZAGENCYCDS_SRV').
+
+        CATCH: /iwbep/cx_gateway, cx_web_http_client_error.
+            " Error handling
+       ENDTRY.
+
+ " Navigate to the resource and create a request for the read operation
+        DATA(lo_read_list_request) = lo_client_proxy->create_resource_for_entity_set( 'Z_TRAVEL_AGENCY_ES5' )->create_request_for_read( ).
+
+ " Create the filter tree
+         filter_factory = lo_read_list_request->create_filter_factory( ).
+
+         LOOP AT lt_filter_condition INTO DATA(filter_condition).
+          filter_node = filter_factory->create_by_range(  iv_property_path = filter_condition-name
+                                                          it_range         = filter_condition-range ).
+
+          IF root_filter_node IS INITIAL.
+            root_filter_node = filter_node.
+          ELSE.
+            root_filter_node = root_filter_node->and( filter_node ).
+          ENDIF.
+         ENDLOOP.
+
+          IF root_filter_node IS NOT INITIAL.
+            lo_read_list_request->set_filter( root_filter_node ).
+          ENDIF.
+
+          IF io_request->is_data_requested( ) = abap_true.
+            lo_read_list_request->set_skip( CONV i( skip ) ).
+            IF top > 0 .
+              lo_read_list_request->set_top( CONV i( top ) ).
+            ENDIF.
+          ENDIF.
+
+          IF io_request->is_total_numb_of_rec_requested(  ) = abap_true.
+            lo_read_list_request->request_count(  ).
+          ENDIF.
+
+  " Execute the request and retrieve the business data
+        DATA(lo_read_list_response) = lo_read_list_request->execute( ).
+
+        lo_read_list_response->get_business_data( IMPORTING et_business_data = lt_business_data ).
+
+        IF io_request->is_total_numb_of_rec_requested(  ).
+          io_response->set_total_number_of_records(  lo_read_list_response->get_count(  ) ).
+        ENDIF.
+
+        IF io_request->is_data_requested(  ).
+          io_response->set_data( lt_business_data ).
+        ENDIF.
+
+      CATCH /iwbep/cx_cp_remote INTO DATA(lx_remote).
+  " Handle remote Exception
+
+      CATCH /iwbep/cx_gateway INTO DATA(lx_gateway).
+  " Handle Exception
+    ENDTRY.
+
+
+  ENDMETHOD.
+ENDCLASS.
+
+
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+@EndUserText.label: 'Interfaceview'
+define root view entity ZEY_AO_I_FE_BOOKING_ANALYTICS as select from /dmo/booking
+association[1] to ZEY_AO_I_M_TRAVEL as _Travel on
+    $projection.TravelId = _Travel.TravelId
+association[1..1] to /DMO/I_Connection as _Connection on
+    $projection.CarrierId = _Connection.AirlineID and
+    $projection.ConnectionId = _Connection.ConnectionID
+association[1..1] to /DMO/I_Carrier as _Carrier on
+    $projection.CarrierId = _Carrier.AirlineID
+association[1] to /DMO/I_Customer as _Customer on
+    $projection.CustomerId = _Customer.CustomerID
+association[1] to /DMO/I_Agency as _Agency on
+    $projection.AgencyId = _Agency.AgencyID
+{
+    key /dmo/booking.travel_id as TravelId,
+    key /dmo/booking.booking_id as BookingId,
+    /dmo/booking.booking_date as BookingDate,
+    /dmo/booking.customer_id as CustomerId,
+    /dmo/booking.carrier_id as CarrierId,
+    _Carrier.Name as CarrierName,
+    /dmo/booking.connection_id as ConnectionId,
+    /dmo/booking.flight_date as FlightDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    /dmo/booking.flight_price as FlightPrice,
+    /dmo/booking.currency_code as CurrencyCode,
+    _Travel.AgencyId as AgencyId,
+    _Travel._Agency.Name as AgencyName,
+    _Travel._Customer.FirstName as CustomerName,
+    _Travel.Createdat as CreatedAt,
+    _Travel.Lastchangedat as LastChangedAt,
+    substring(booking_date,1,4) as BookingDateYear,
+    _Connection,
+    _Carrier,
+    _Travel,
+    _Customer,
+    _Agency
+    
+}
+
+
+
+@EndUserText.label: 'Booking data analytics'
+@AccessControl.authorizationCheck: #NOT_REQUIRED
+
+@UI.chart: [{
+        chartType: #COLUMN,
+        dimensions: ['CarrierName'],
+        measures: ['FlightPrice'],
+        dimensionAttributes: [{dimension: 'CarrierName',role: #CATEGORY }],
+        measureAttributes: [{measure: 'FlightPrice',role: #AXIS_1, asDataPoint: true }]
+ }]
+
+define root view entity ZEY_AO_C_FE_BOOKING_ANALYTICS as projection on ZEY_AO_I_FE_BOOKING_ANALYTICS {
+    key TravelId,
+    @UI:{ selectionField: [{position: 10 }],
+          lineItem: [{position: 10 }]}
+    key BookingId,
+    @UI.lineItem: [{position: 20 }]
+    BookingDate,
+    @ObjectModel.text.element: ['CustomerName']
+    @UI.lineItem: [{position: 30 }]
+    CustomerId,
+    @ObjectModel.text.element: ['CarrierName']
+    @UI.lineItem: [{position: 40 }]
+    CarrierId,
+    CarrierName,
+    ConnectionId,
+    @UI.lineItem: [{position: 50 }]
+    FlightDate,
+    @Semantics.amount.currencyCode: 'CurrencyCode'
+    @DefaultAggregation: #SUM
+    @UI.lineItem: [{position: 60 }]
+    FlightPrice,
+    CurrencyCode,
+    @ObjectModel.text.element: ['AgencyName']
+    @UI.lineItem: [{position: 70 }]
+    AgencyId,
+    AgencyName,
+    CustomerName,
+    BookingDateYear,
+    CreatedAt,
+    LastChangedAt,
+    /* Associations */
+    _Agency,
+    _Carrier,
+    _Connection,
+    _Customer,
+    _Travel
+}
+
+
+
+@EndUserText.label: 'Booking Analytic Service'
+define service ZEY_AO_BOOK_ANA {
+  expose ZEY_AO_C_FE_BOOKING_ANALYTICS as Booking;
+  expose ZEY_AO_I_M_TRAVEL as Travel;
+}
+
+
